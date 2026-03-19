@@ -3,6 +3,12 @@
     class="container" 
     :style="{ backgroundColor: isListening ? 'var(--bg-color-active)' : 'var(--bg-color-idle)' }"
   >
+    <!-- Dynamic Aura Background Layer -->
+    <div 
+      ref="auraRef"
+      class="aura-background"
+    ></div>
+
     <!-- Onboarding Overlay -->
     <div v-if="!isListening" class="overlay">
       <button @click="handleStart" class="start-btn">按下開始咆哮</button>
@@ -63,6 +69,7 @@ const visualizerColor = computed(() => {
 
 const currentFont = VARIABLE_FONTS.robotoFlex
 const canvasRef = ref<HTMLElement | null>(null)
+const auraRef = ref<HTMLElement | null>(null)
 
 // 畫面上要填滿被擠壓的文字
 const displayWord = "VOICE"
@@ -87,7 +94,7 @@ const handleStart = () => {
 
 // 核心渲染迴圈 (60fps)
 const renderLoop = () => {
-  if (!canvasRef.value) {
+  if (!canvasRef.value || !auraRef.value) {
     animationFrameId = requestAnimationFrame(renderLoop)
     return
   }
@@ -122,6 +129,12 @@ const renderLoop = () => {
       y: (Math.random() - 0.5) * shiftIntensity
     }
 
+    // 【方案 A: 背景光暈爆發】
+    const auraSize = 50 + volumeRatio * 150
+    const auraOpacity = 0.3 + volumeRatio * 0.6
+    auraRef.value.style.background = `radial-gradient(circle at center, rgba(239, 68, 68, ${auraOpacity}) 0%, transparent 70%)`
+    auraRef.value.style.transform = `scale(${auraSize / 50})`
+
   } else {
     // 【待機狀態】由正弦波控制，產生胸腔呼吸感
     const sinValue = getSineWave(1500) // 1500ms 週期
@@ -134,6 +147,11 @@ const renderLoop = () => {
     containerOffset.value = { x: 0, y: idleFloatOffset.value }
     rgbOffset.value = { x: 0, y: 0 }
     idleRotate.value = Math.sin(Date.now() / 3500) * 2
+
+    // 【方案 A: 背景光暈待機呼吸】
+    const auraSize = 50 + sinValue * 15
+    auraRef.value.style.background = `radial-gradient(circle at center, rgba(56, 189, 248, 0.2) 0%, transparent 70%)`
+    auraRef.value.style.transform = `scale(${auraSize / 50})`
   }
 
   // 2. 利用 lerp 來進行平滑過度
@@ -204,6 +222,20 @@ onBeforeUnmount(() => {
 .layer-main {
   color: white;
   z-index: 3;
+}
+
+/* 方案 A: 背景光暈樣式 */
+.aura-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  filter: blur(100px);
+  pointer-events: none;
+  transition: background 0.3s ease;
+  will-change: transform, background;
 }
 
 .overlay {
