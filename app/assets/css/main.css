@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,slnt,wdth,wght,GRAD@8..144,-10..0,25..151,100..1000,-200..150&display=swap');
+
+:root {
+  --font-primary: 'Roboto Flex', sans-serif;
+  --bg-color-idle: #0f172a; /* 深藍色，待機冷色調 */
+  --bg-color-active: #7f1d1d; /* 火紅色，咆哮暖色調 */
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-color-idle);
+  color: #ffffff;
+  overflow: hidden;
+  font-family: var(--font-primary);
+  /* 平滑的背景過渡效果 */
+  transition: background-color 0.3s ease-out;
+}
+
+/* 填滿全螢幕的高密度文字畫布 */
+.dense-text-canvas {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* 排版壓迫感處理 - 根據回饋調整，不再黏在一起 */
+  font-size: 12vw;
+  line-height: 1.1;
+  letter-spacing: 0.02em; /* 稍微拉開字距 */
+  word-break: normal;
+  overflow-wrap: break-word;
+  text-align: center;
+  text-transform: uppercase;
+  
+  /* 準備字型變數的預設過渡狀態，但實際上會被 requestAnimationFrame 高頻覆寫 */
+  /* 不要加 transition 至 font-variation-settings，否則 JS 即時 60fps 運算時會卡頓 */
+}
