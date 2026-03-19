@@ -9,13 +9,16 @@
       <p class="hint">請允許麥克風權限以體驗互動字型</p>
     </div>
 
-    <!-- The Dense Canvas -->
+    <!-- The Dense Canvas with RGB Shift Layers -->
     <div 
       ref="canvasRef" 
       class="dense-text-canvas"
-      :style="{ transform: `translateY(${idleFloatOffset}px) rotate(${idleRotate}deg)` }"
+      :style="{ transform: `translate(${containerOffset.x}px, ${containerOffset.y}px) rotate(${idleRotate}deg)` }"
     >
-      {{ displayWord }}
+      <!-- 使用三層文字疊加來模擬色散 -->
+      <span class="text-layer layer-red" :style="{ transform: `translate(${rgbOffset.x}px, ${rgbOffset.y}px)` }">{{ displayWord }}</span>
+      <span class="text-layer layer-cyan" :style="{ transform: `translate(${-rgbOffset.x}px, ${-rgbOffset.y}px)` }">{{ displayWord }}</span>
+      <span class="text-layer layer-main">{{ displayWord }}</span>
     </div>
 
     <!-- Audio Visualizer Status Bar -->
@@ -67,12 +70,13 @@ const THRESHOLD = 0.05 // 音量過濾門檻，過濾環境音
 const SMOOTHING = 0.1 // 待機與降緩時的平滑系數
 const IMPACT_SMOOTHING = 0.35 // 爆發時的平滑系數 (靈敏度較高)
 
-// 物理漂浮狀態 (響應式，由 Vue 更新)
-// 因為只是控制簡單的 transform，給 Vue Reactivity 更新效能尚可接受
-const idleFloatOffset = ref(0)
+// 物理漂浮與震動狀態
+const containerOffset = ref({ x: 0, y: 0 })
+const rgbOffset = ref({ x: 0, y: 0 })
 const idleRotate = ref(0)
+const idleFloatOffset = ref(0) // 內部輔助呼吸高度
 
-// 內部變數 (無 Reactivity 開銷)，用於 60fps 原生 DOM 更新
+// 內部變數 (無 Reactivity 開銷)
 let animationFrameId: number
 let currentWdth = currentFont.axes.idleWidth.min
 let currentWght = currentFont.axes.idleWeight.min
@@ -92,16 +96,32 @@ const renderLoop = () => {
   let targetWdth = 0
   let targetWght = 0
   let isExploding = false
+  let volumeRatio = 0
 
   if (isListening.value && rawVolume.value > THRESHOLD) {
     // 【爆發狀態】由聲音音量控制
     isExploding = true
-    const volumeRatio = Math.min((rawVolume.value - THRESHOLD) / (1 - THRESHOLD), 1)
+    volumeRatio = Math.min((rawVolume.value - THRESHOLD) / (1 - THRESHOLD), 1)
     
     // 將 0-1 映射到設定檔中定義的最大最小寬度與重量
     targetWdth = currentFont.axes.volumeToWidth.min + volumeRatio * (currentFont.axes.volumeToWidth.max - currentFont.axes.volumeToWidth.min)
     targetWght = currentFont.axes.volumeToWeight.min + volumeRatio * (currentFont.axes.volumeToWeight.max - currentFont.axes.volumeToWeight.min)
     
+    // 【方案 E: 震動邏輯】
+    // 震動幅度隨音量加大
+    const shakeIntensity = volumeRatio * 25 
+    containerOffset.value = {
+      x: (Math.random() - 0.5) * shakeIntensity,
+      y: (Math.random() - 0.5) * shakeIntensity
+    }
+    
+    // 【方案 E: 色散位移 (RGB Shift)】
+    const shiftIntensity = volumeRatio * 15
+    rgbOffset.value = {
+      x: (Math.random() - 0.5) * shiftIntensity,
+      y: (Math.random() - 0.5) * shiftIntensity
+    }
+
   } else {
     // 【待機狀態】由正弦波控制，產生胸腔呼吸感
     const sinValue = getSineWave(1500) // 1500ms 週期
@@ -109,8 +129,10 @@ const renderLoop = () => {
     targetWdth = currentFont.axes.idleWidth.min + sinValue * (currentFont.axes.idleWidth.max - currentFont.axes.idleWidth.min)
     targetWght = currentFont.axes.idleWeight.min + sinValue * (currentFont.axes.idleWeight.max - currentFont.axes.idleWeight.min)
     
-    // 順便緩慢更新漂浮感 Transform
+    // 待機重置與呼吸
     idleFloatOffset.value = Math.sin(Date.now() / 2500) * 15
+    containerOffset.value = { x: 0, y: idleFloatOffset.value }
+    rgbOffset.value = { x: 0, y: 0 }
     idleRotate.value = Math.sin(Date.now() / 3500) * 2
   }
 
@@ -142,6 +164,46 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100vw;
   height: 100vh;
+  overflow: hidden; /* 防止震動時出現捲軸 */
+}
+
+/* 文字層級樣式 */
+.dense-text-canvas {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-layer {
+  position: absolute;
+  /* 讓三層文字完全重疊 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* RGB 色散層設定 */
+.layer-red {
+  color: #ff0000;
+  mix-blend-mode: screen;
+  z-index: 1;
+}
+
+.layer-cyan {
+  color: #00ffff;
+  mix-blend-mode: screen;
+  z-index: 2;
+}
+
+.layer-main {
+  color: white;
+  z-index: 3;
 }
 
 .overlay {
