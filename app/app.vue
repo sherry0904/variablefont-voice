@@ -1,7 +1,7 @@
 <template>
   <div 
-    class="container" 
-    :style="{ backgroundColor: isListening ? 'var(--bg-color-active)' : 'var(--bg-color-idle)' }"
+    ref="containerRef"
+    class="container"
   >
     <!-- Dynamic Aura Background Layer -->
     <div 
@@ -70,6 +70,7 @@ const visualizerColor = computed(() => {
 const currentFont = VARIABLE_FONTS.robotoFlex
 const canvasRef = ref<HTMLElement | null>(null)
 const auraRef = ref<HTMLElement | null>(null)
+const containerRef = ref<HTMLElement | null>(null)
 
 // 畫面上要填滿被擠壓的文字
 const displayWord = "VOICE"
@@ -83,10 +84,16 @@ const rgbOffset = ref({ x: 0, y: 0 })
 const idleRotate = ref(0)
 const idleFloatOffset = ref(0) // 內部輔助呼吸高度
 
+// 夜店模式：Hue-rotate 計時器與閃頻狀態
+let hueAngle = 0
+let lastStrobeTime = 0
+
 // 內部變數 (無 Reactivity 開銷)
 let animationFrameId: number
-let currentWdth = currentFont.axes.idleWidth.min
-let currentWght = currentFont.axes.idleWeight.min
+let currentWdth  = currentFont.axes.idleWidth.min
+let currentWght  = currentFont.axes.idleWeight.min
+let currentSlnt  = 0
+let currentGrad  = currentFont.axes.idleGrade.min
 
 const handleStart = () => {
   startListening()
@@ -110,9 +117,11 @@ const renderLoop = () => {
     isExploding = true
     volumeRatio = Math.min((rawVolume.value - THRESHOLD) / (1 - THRESHOLD), 1)
     
-    // 將 0-1 映射到設定檔中定義的最大最小寬度與重量
-    targetWdth = currentFont.axes.volumeToWidth.min + volumeRatio * (currentFont.axes.volumeToWidth.max - currentFont.axes.volumeToWidth.min)
-    targetWght = currentFont.axes.volumeToWeight.min + volumeRatio * (currentFont.axes.volumeToWeight.max - currentFont.axes.volumeToWeight.min)
+    // 將 0-1 映射到設定檔定義的最大最小值
+    const targetWdth = currentFont.axes.volumeToWidth.min  + volumeRatio * (currentFont.axes.volumeToWidth.max  - currentFont.axes.volumeToWidth.min)
+    const targetWght = currentFont.axes.volumeToWeight.min + volumeRatio * (currentFont.axes.volumeToWeight.max - currentFont.axes.volumeToWeight.min)
+    const targetSlnt = currentFont.axes.volumeToSlant.min  + volumeRatio * (currentFont.axes.volumeToSlant.max  - currentFont.axes.volumeToSlant.min)
+    const targetGrad = currentFont.axes.volumeToGrade.min  + volumeRatio * (currentFont.axes.volumeToGrade.max  - currentFont.axes.volumeToGrade.min)
     
     // 【方案 E: 震動邏輯】
     // 震動幅度隨音量加大
@@ -129,38 +138,64 @@ const renderLoop = () => {
       y: (Math.random() - 0.5) * shiftIntensity
     }
 
-    // 【方案 A: 背景光暈爆發】
-    const auraSize = 50 + volumeRatio * 150
-    const auraOpacity = 0.3 + volumeRatio * 0.6
-    auraRef.value.style.background = `radial-gradient(circle at center, rgba(239, 68, 68, ${auraOpacity}) 0%, transparent 70%)`
-    auraRef.value.style.transform = `scale(${auraSize / 50})`
+    // 【夜店模式：Hue-rotate 色彩循環，大聲時旋轉加速】
+    const hueSpeed = 0.5 + volumeRatio * 5 // 待機 0.5deg/frame，咆哮最高 5.5deg/frame
+    hueAngle = (hueAngle + hueSpeed) % 360
+    auraRef.value.style.filter = `blur(100px) hue-rotate(${hueAngle}deg)`
+
+    // 【夜店模式：Strobe 閃頻，音量超過 0.7 時每 100ms 一閃】
+    const now = Date.now()
+    if (volumeRatio > 0.7 && now - lastStrobeTime > 100) {
+      lastStrobeTime = now
+      containerRef.value!.style.backgroundColor = '#ffffff'
+      setTimeout(() => {
+        if (containerRef.value) containerRef.value.style.backgroundColor = ''
+      }, 40)
+    }
+
+    // lerp 平滑過渡
+    const lerpFactor = IMPACT_SMOOTHING
+    currentWdth = lerp(currentWdth, targetWdth, lerpFactor)
+    currentWght = lerp(currentWght, targetWght, lerpFactor)
+    currentSlnt = lerp(currentSlnt, targetSlnt, lerpFactor)
+    currentGrad = lerp(currentGrad, targetGrad, lerpFactor)
 
   } else {
-    // 【待機狀態】由正弦波控制，產生胸腔呼吸感
-    const sinValue = getSineWave(1500) // 1500ms 週期
-    
-    targetWdth = currentFont.axes.idleWidth.min + sinValue * (currentFont.axes.idleWidth.max - currentFont.axes.idleWidth.min)
-    targetWght = currentFont.axes.idleWeight.min + sinValue * (currentFont.axes.idleWeight.max - currentFont.axes.idleWeight.min)
-    
-    // 待機重置與呼吸
+    // 【待機狀態】
+    const sinValue = getSineWave(1500)
+    const idleWdth = currentFont.axes.idleWidth.min  + sinValue * (currentFont.axes.idleWidth.max  - currentFont.axes.idleWidth.min)
+    const idleWght = currentFont.axes.idleWeight.min + sinValue * (currentFont.axes.idleWeight.max - currentFont.axes.idleWeight.min)
+    const idleGrad = currentFont.axes.idleGrade.min  + sinValue * (currentFont.axes.idleGrade.max  - currentFont.axes.idleGrade.min)
+
+    // 待機重置
     idleFloatOffset.value = Math.sin(Date.now() / 2500) * 15
     containerOffset.value = { x: 0, y: idleFloatOffset.value }
-    rgbOffset.value = { x: 0, y: 0 }
-    idleRotate.value = Math.sin(Date.now() / 3500) * 2
+    rgbOffset.value       = { x: 0, y: 0 }
+    idleRotate.value      = Math.sin(Date.now() / 3500) * 2
+
+    // 色彩循環：待機時緩慢轉動
+    hueAngle = (hueAngle + 0.3) % 360
+    auraRef.value.style.filter = `blur(100px) hue-rotate(${hueAngle}deg)`
 
     // 【方案 A: 背景光暈待機呼吸】
     const auraSize = 50 + sinValue * 15
-    auraRef.value.style.background = `radial-gradient(circle at center, rgba(56, 189, 248, 0.2) 0%, transparent 70%)`
+    auraRef.value.style.background = `radial-gradient(circle at center, rgba(56, 189, 248, 0.35) 0%, transparent 70%)`
     auraRef.value.style.transform = `scale(${auraSize / 50})`
+
+    // lerp 平滑回待機
+    currentWdth = lerp(currentWdth, idleWdth, SMOOTHING)
+    currentWght = lerp(currentWght, idleWght, SMOOTHING)
+    currentSlnt = lerp(currentSlnt, 0, SMOOTHING)
+    currentGrad = lerp(currentGrad, idleGrad, SMOOTHING)
   }
 
-  // 2. 利用 lerp 來進行平滑過度
-  const lerpFactor = isExploding ? IMPACT_SMOOTHING : SMOOTHING
-  currentWdth = lerp(currentWdth, targetWdth, lerpFactor)
-  currentWght = lerp(currentWght, targetWght, lerpFactor)
-
-  // 3. 原生覆寫 DOM style，繞過 Vue Diff 以達極致順暢
-  canvasRef.value.style.fontVariationSettings = `'${currentFont.axes.volumeToWidth.cssTag}' ${currentWdth}, '${currentFont.axes.volumeToWeight.cssTag}' ${currentWght}`
+  // 最終寫入所有四個可變字型軸心至 DOM
+  canvasRef.value.style.fontVariationSettings = [
+    `'wdth' ${currentWdth.toFixed(2)}`,
+    `'wght' ${currentWght.toFixed(2)}`,
+    `'slnt' ${currentSlnt.toFixed(3)}`,
+    `'GRAD' ${currentGrad.toFixed(2)}`,
+  ].join(', ')
 
   // 4. 要求次一影格繼續執行
   animationFrameId = requestAnimationFrame(renderLoop)
