@@ -10,10 +10,35 @@
     ></div>
 
     <!-- Onboarding Overlay -->
-    <div v-if="!isListening" class="overlay">
-      <button @click="handleStart" class="start-btn">按下開始咆哮</button>
-      <p class="hint">請允許麥克風權限以體驗互動字型</p>
-    </div>
+    <Transition name="fade">
+      <div v-if="!isListening" class="overlay">
+        <!-- 左上角標籤 -->
+        <div class="badge">Variable Font × Voice</div>
+
+        <!-- 主標題 -->
+        <div class="hero">
+          <h1 class="hero-title">你敢大聲嗎？</h1>
+          <p class="hero-desc">
+            你的音量越大，<br>
+            文字就越張狂。
+          </p>
+
+          <button @click="handleStart" class="start-btn">
+            <span class="btn-icon">🎙</span>
+            <span class="btn-text">我敢！</span>
+          </button>
+          <p class="hint">需要允許麥克風權限</p>
+        </div>
+
+        <!-- 右下角技術標籤 -->
+        <div class="tech-tags">
+          <span>wdth</span>
+          <span>wght</span>
+          <span>slnt</span>
+          <span>GRAD</span>
+        </div>
+      </div>
+    </Transition>
 
     <!-- The Dense Canvas with RGB Shift Layers -->
     <div 
@@ -139,9 +164,14 @@ const renderLoop = () => {
     }
 
     // 【夜店模式：Hue-rotate 色彩循環，大聲時旋轉加速】
-    const hueSpeed = 0.5 + volumeRatio * 5 // 待機 0.5deg/frame，咆哮最高 5.5deg/frame
+    const hueSpeed = 0.5 + volumeRatio * 5
     hueAngle = (hueAngle + hueSpeed) % 360
-    auraRef.value.style.filter = `blur(100px) hue-rotate(${hueAngle}deg)`
+    // 【方案 A: 背景光暈爆發—強烈紅粉雙色漸層】
+    const auraSize2 = 50 + volumeRatio * 200
+    const auraOpacity2 = 0.55 + volumeRatio * 0.45
+    auraRef.value.style.background = `radial-gradient(circle at center, rgba(255, 50, 50, ${auraOpacity2}) 0%, rgba(200, 0, 120, ${auraOpacity2 * 0.5}) 40%, transparent 80%)`
+    auraRef.value.style.transform = `scale(${auraSize2 / 50})`
+    auraRef.value.style.filter = `blur(80px) hue-rotate(${hueAngle}deg)`
 
     // 【夜店模式：Strobe 閃頻，音量超過 0.7 時每 100ms 一閃】
     const now = Date.now()
@@ -175,12 +205,11 @@ const renderLoop = () => {
 
     // 色彩循環：待機時緩慢轉動
     hueAngle = (hueAngle + 0.3) % 360
-    auraRef.value.style.filter = `blur(100px) hue-rotate(${hueAngle}deg)`
-
-    // 【方案 A: 背景光暈待機呼吸】
+    // 【待機光暈：高飽和藍紫雙色漸層，透明度 0.85】
     const auraSize = 50 + sinValue * 15
-    auraRef.value.style.background = `radial-gradient(circle at center, rgba(56, 189, 248, 0.35) 0%, transparent 70%)`
+    auraRef.value.style.background = `radial-gradient(circle at center, rgba(30, 150, 255, 0.85) 0%, rgba(80, 0, 200, 0.45) 50%, transparent 80%)`
     auraRef.value.style.transform = `scale(${auraSize / 50})`
+    auraRef.value.style.filter = `blur(80px) hue-rotate(${hueAngle}deg)`
 
     // lerp 平滑回待機
     currentWdth = lerp(currentWdth, idleWdth, SMOOTHING)
@@ -284,40 +313,142 @@ onBeforeUnmount(() => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: rgba(15, 23, 42, 0.85); /* 蓋上一層半透明深藍 */
-  backdrop-filter: blur(12px);
-  transition: opacity 0.5s ease;
+  /* 改成半透明，讓後方的 Aura 光暈透出來 */
+  background: rgba(5, 8, 15, 0.55);
+  backdrop-filter: blur(8px);
+  /* CSS 動態掃光效果 */
+  animation: overlayPulse 4s ease-in-out infinite;
 }
 
+@keyframes overlayPulse {
+  0%   { background: rgba(5, 8, 15, 0.55); }
+  50%  { background: rgba(10, 5, 25, 0.45); }
+  100% { background: rgba(5, 8, 15, 0.55); }
+}
+
+/* Fade 轉場動畫 */
+.fade-leave-active {
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.fade-leave-to {
+  opacity: 0;
+  transform: scale(1.04);
+}
+
+/* 左上角技術標籤 */
+.badge {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+}
+
+/* 主要內容區塊 */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: center;
+  max-width: 600px;
+  width: 90%;
+}
+
+.hero-title {
+  font-family: var(--font-primary);
+  font-variation-settings: 'wght' 800, 'wdth' 120;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: white;
+  margin: 0;
+  text-align: center;
+  width: 100%;
+  text-shadow: 0 0 60px rgba(120, 180, 255, 0.4);
+}
+
+.hero-desc {
+  font-family: var(--font-primary);
+  font-variation-settings: 'wght' 300, 'wdth' 90;
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  line-height: 1.8;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  text-align: center;
+}
+
+/* 開始按鈕 */
 .start-btn {
-  padding: 1.2rem 2.5rem;
-  font-size: 1.8rem;
-  border: 2px solid white;
-  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
   color: white;
   cursor: pointer;
-  border-radius: 12px;
-  text-transform: uppercase;
+  border-radius: 100px;
   font-family: var(--font-primary);
-  /* 預設按鈕也有微小的可變字型設定 */
   font-variation-settings: 'wght' 500, 'wdth' 100;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 1.4rem;
+  letter-spacing: 0.05em;
+  box-shadow:
+    0 0 20px rgba(100, 150, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 0.5rem;
+}
+
+.btn-icon {
+  font-size: 1.6rem;
+  line-height: 1;
 }
 
 .start-btn:hover {
-  background: white;
-  color: var(--bg-color-idle);
-  /* Hover 時字變重變寬 */
-  font-variation-settings: 'wght' 800, 'wdth' 120;
-  transform: scale(1.05);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.6);
+  font-variation-settings: 'wght' 700, 'wdth' 115;
+  box-shadow:
+    0 0 40px rgba(100, 150, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: scale(1.04);
 }
 
 .hint {
-  margin-top: 1.5rem;
-  font-size: 1rem;
-  opacity: 0.7;
-  letter-spacing: 0.1em;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0;
 }
+
+/* 右下角軸心技術標籤群 */
+.tech-tags {
+  position: absolute;
+  bottom: 2rem;
+  right: 2rem;
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+.tech-tags span {
+  font-family: monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+}
+
 
 /* 底部音量狀態列 */
 .audio-visualizer {

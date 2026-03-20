@@ -2,8 +2,8 @@
 
 :root {
   --font-primary: 'Roboto Flex', sans-serif;
-  --bg-color-idle: #0f172a; /* 深藍色，待機冷色調 */
-  --bg-color-active: #7f1d1d; /* 火紅色，咆哮暖色調 */
+  --bg-color-idle:   #05080f; /* 近黑深夜感，讓藍色光暈更突出 */
+  --bg-color-active: #05080f; /* 爆發時維持暗底，讓紅色光暈單獨發光 */
 }
 
 body, html {
