@@ -17,7 +17,7 @@
 
         <!-- 主標題 -->
         <div class="hero">
-          <h1 class="hero-title">你敢大聲嗎？</h1>
+          <h1 class="hero-title">你敢大聲嗎</h1>
           <p class="hero-desc">
             你的音量越大，<br>
             文字就越張狂。
@@ -72,6 +72,24 @@
         <div class="threshold-line" :style="{ left: `${THRESHOLD * 100}%` }"></div>
       </div>
     </div>
+
+    <!-- Debug Panel (按 D 切換) -->
+    <Transition name="fade">
+      <div v-if="showDebug" class="debug-panel">
+        <div class="debug-title">🛠 DEBUG MODE</div>
+        <div class="debug-row">
+          <label>模擬音量</label>
+          <input 
+            type="range" 
+            min="0" max="1" step="0.01"
+            v-model.number="debugVolume"
+            class="debug-slider"
+          />
+          <span class="debug-val">{{ Math.round(debugVolume * 100) }}%</span>
+        </div>
+        <div class="debug-hint">按 D 關閉 · 滑到 0 恢復麥克風</div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -103,6 +121,22 @@ const THRESHOLD = 0.05 // 音量過濾門檻，過濾環境音
 const SMOOTHING = 0.1 // 待機與降緩時的平滑系數
 const IMPACT_SMOOTHING = 0.35 // 爆發時的平滑系數 (靈敏度較高)
 
+// Debug 模式
+const showDebug = ref(false)
+const debugVolume = ref(0) // 0 = 未啟用，使用真實麥克風
+
+// 切換 Debug Panel (D 鍵)
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'd' || e.key === 'D') showDebug.value = !showDebug.value
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+
 // 物理漂浮與震動狀態
 const containerOffset = ref({ x: 0, y: 0 })
 const rgbOffset = ref({ x: 0, y: 0 })
@@ -131,16 +165,20 @@ const renderLoop = () => {
     return
   }
 
+  // 1a. 取得有效音量：Debug 模式下用滑桿值覆蓋麥克風
+  const effectiveVolume = (showDebug.value && debugVolume.value > 0)
+    ? debugVolume.value
+    : rawVolume.value
+  const effectiveListening = isListening.value || (showDebug.value && debugVolume.value > 0)
+
   // 1. 計算當前目標值 Target Values
-  let targetWdth = 0
-  let targetWght = 0
   let isExploding = false
   let volumeRatio = 0
 
-  if (isListening.value && rawVolume.value > THRESHOLD) {
+  if (effectiveListening && effectiveVolume > THRESHOLD) {
     // 【爆發狀態】由聲音音量控制
     isExploding = true
-    volumeRatio = Math.min((rawVolume.value - THRESHOLD) / (1 - THRESHOLD), 1)
+    volumeRatio = Math.min((effectiveVolume - THRESHOLD) / (1 - THRESHOLD), 1)
     
     // 將 0-1 映射到設定檔定義的最大最小值
     const targetWdth = currentFont.axes.volumeToWidth.min  + volumeRatio * (currentFont.axes.volumeToWidth.max  - currentFont.axes.volumeToWidth.min)
@@ -498,5 +536,64 @@ onBeforeUnmount(() => {
   width: 2px;
   background-color: #fca5a5; /* 門檻警示紅線 */
   box-shadow: 0 0 4px rgba(252, 165, 165, 0.8);
+}
+
+/* Debug Panel 樣式 */
+.debug-panel {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 150, 0.4);
+  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 260px;
+  backdrop-filter: blur(10px);
+}
+
+.debug-title {
+  font-family: monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 100, 0.9);
+  text-transform: uppercase;
+}
+
+.debug-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.debug-row label {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+
+.debug-slider {
+  flex: 1;
+  accent-color: #facc15;
+  cursor: pointer;
+}
+
+.debug-val {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #facc15;
+  min-width: 3ch;
+  text-align: right;
+}
+
+.debug-hint {
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.05em;
 }
 </style>
