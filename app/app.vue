@@ -44,7 +44,6 @@
     <div 
       ref="canvasRef" 
       class="dense-text-canvas"
-      :style="{ transform: `translate(${containerOffset.x}px, ${containerOffset.y}px) rotate(${idleRotate}deg)` }"
     >
       <!-- 使用三層文字疊加來模擬色散 -->
       <span class="text-layer layer-red" :style="{ transform: `translate(${rgbOffset.x}px, ${rgbOffset.y}px)` }">{{ displayWord }}</span>
@@ -78,7 +77,7 @@
       <div v-if="showDebug" class="debug-panel">
         <div class="debug-title">🛠 DEBUG MODE</div>
         <div class="debug-row">
-          <label>模擬音量</label>
+          <label>模擬音量 Volume</label>
           <input 
             type="range" 
             min="0" max="1" step="0.01"
@@ -86,6 +85,28 @@
             class="debug-slider"
           />
           <span class="debug-val">{{ Math.round(debugVolume * 100) }}%</span>
+        </div>
+        <div class="debug-row" :style="{ opacity: debugVolume > 0 ? 1 : 0.5 }">
+          <label>模擬音高 Pitch</label>
+          <input 
+            type="range" 
+            min="0" max="1" step="0.01"
+            v-model.number="debugPitch"
+            class="debug-slider"
+            :disabled="debugVolume === 0"
+          />
+          <span class="debug-val">{{ Math.round(debugPitch * 100) }}%</span>
+        </div>
+        <div class="debug-row" :style="{ opacity: debugVolume > 0 ? 1 : 0.5 }">
+          <label>模擬爆發 Delta</label>
+          <input 
+            type="range" 
+            min="0" max="1" step="0.01"
+            v-model.number="debugDelta"
+            class="debug-slider"
+            :disabled="debugVolume === 0"
+          />
+          <span class="debug-val">{{ Math.round(debugDelta * 100) }}%</span>
         </div>
         <div class="debug-hint">按 D 關閉 · 滑到 0 恢復麥克風</div>
       </div>
@@ -99,7 +120,22 @@ import { useAudioAnalyzer } from '~/composables/useAudioAnalyzer'
 import { lerp, getSineWave } from '~/composables/useMath'
 import { VARIABLE_FONTS } from '~/config/fonts'
 
-const { isListening, rawVolume, startListening, stopListening } = useAudioAnalyzer()
+const { isListening, rawVolume, volumeDelta, pitch, startListening, stopListening } = useAudioAnalyzer()
+
+// ========== 動態互動視覺參數設定區 ==========
+// 你可以在這裡調整所有字體和視覺反應的幅度！
+const VISUAL_CONFIG = {
+  maxScale: 0.8,              // 大聲時字體放大的額外比例 (1 + 0.8 = 原本的 1.8 倍)
+  slantMultiplier: 2.0,       // 爆發時的傾斜幅度倍率
+  shakeIntensity: 25,         // 大聲時最大震動幅度 (px)
+  rgbShiftIntensity: 15,      // 大聲時 RGB 色散錯位的最大分離度 (px)
+  
+  baseHue: 240,               // 待機時的基礎色相 (240 為藍色，0 為紅色)
+  pitchColorRange: 160,       // 色相變動範圍 (240 + 160 = 400，等於色相 40 的橘黃色，讓高低溫差更強烈)
+  smoothingActive: 0.35,      // 有聲音時的反應平滑度 (越大越即刻，越小越像黏土)
+  smoothingIdle: 0.1          // 待機時的恢復平滑度 (控制回彈速度)
+}
+// ==========================================
 
 // 計算音量條顏色
 const visualizerColor = computed(() => {
@@ -118,12 +154,12 @@ const containerRef = ref<HTMLElement | null>(null)
 // 畫面上要填滿被擠壓的文字
 const displayWord = "VOICE"
 const THRESHOLD = 0.05 // 音量過濾門檻，過濾環境音
-const SMOOTHING = 0.1 // 待機與降緩時的平滑系數
-const IMPACT_SMOOTHING = 0.35 // 爆發時的平滑系數 (靈敏度較高)
 
 // Debug 模式
 const showDebug = ref(false)
 const debugVolume = ref(0) // 0 = 未啟用，使用真實麥克風
+const debugPitch = ref(0.5) // 控制字重 (低音粗/高音細)
+const debugDelta = ref(0)   // 控制爆發力傾斜
 
 // 切換 Debug Panel (D 鍵)
 const handleKeydown = (e: KeyboardEvent) => {
@@ -165,11 +201,13 @@ const renderLoop = () => {
     return
   }
 
-  // 1a. 取得有效音量：Debug 模式下用滑桿值覆蓋麥克風
-  const effectiveVolume = (showDebug.value && debugVolume.value > 0)
-    ? debugVolume.value
-    : rawVolume.value
-  const effectiveListening = isListening.value || (showDebug.value && debugVolume.value > 0)
+  // 1a. 取得有效輸入值：Debug 模式下用滑桿值覆蓋麥克風
+  const isDebugMode = showDebug.value && debugVolume.value > 0
+  const effectiveVolume = isDebugMode ? debugVolume.value : rawVolume.value
+  const effectivePitch = isDebugMode ? debugPitch.value : pitch.value
+  const effectiveDelta = isDebugMode ? debugDelta.value : volumeDelta.value
+  
+  const effectiveListening = isListening.value || isDebugMode
 
   // 1. 計算當前目標值 Target Values
   let isExploding = false
@@ -181,21 +219,33 @@ const renderLoop = () => {
     volumeRatio = Math.min((effectiveVolume - THRESHOLD) / (1 - THRESHOLD), 1)
     
     // 將 0-1 映射到設定檔定義的最大最小值
+    // 1. 音量 (Volume) 控制 字寬 (Width)
     const targetWdth = currentFont.axes.volumeToWidth.min  + volumeRatio * (currentFont.axes.volumeToWidth.max  - currentFont.axes.volumeToWidth.min)
-    const targetWght = currentFont.axes.volumeToWeight.min + volumeRatio * (currentFont.axes.volumeToWeight.max - currentFont.axes.volumeToWeight.min)
-    const targetSlnt = currentFont.axes.volumeToSlant.min  + volumeRatio * (currentFont.axes.volumeToSlant.max  - currentFont.axes.volumeToSlant.min)
+    
+    // 2. 音高 (Pitch) 控制 字重 (Weight)。高音(effectivePitch=1)細，低音(effectivePitch=0)粗
+    // 使用 (1 - effectivePitch) 來作反向映射
+    const targetWght = currentFont.axes.volumeToWeight.min + (1 - effectivePitch) * (currentFont.axes.volumeToWeight.max - currentFont.axes.volumeToWeight.min)
+    // 3. 瞬間爆發力 (Delta) 控制 傾斜度 (Slant)
+    let slantRatio = effectiveDelta * VISUAL_CONFIG.slantMultiplier // 放大爆發力的影響
+    slantRatio = Math.min(1, Math.max(0, slantRatio))
+    const targetSlnt = currentFont.axes.volumeToSlant.min  + slantRatio * (currentFont.axes.volumeToSlant.max  - currentFont.axes.volumeToSlant.min)
+    // 次要屬性
     const targetGrad = currentFont.axes.volumeToGrade.min  + volumeRatio * (currentFont.axes.volumeToGrade.max  - currentFont.axes.volumeToGrade.min)
     
+    // 4. 音量控制 字級/縮放 (Size/Scale)
+    const targetScale = 1 + volumeRatio * VISUAL_CONFIG.maxScale
+    canvasRef.value.style.transform = `translate(${containerOffset.value.x}px, ${containerOffset.value.y}px) rotate(${idleRotate.value}deg) scale(${targetScale})`
+
     // 【方案 E: 震動邏輯】
     // 震動幅度隨音量加大
-    const shakeIntensity = volumeRatio * 25 
+    const shakeIntensity = volumeRatio * VISUAL_CONFIG.shakeIntensity 
     containerOffset.value = {
       x: (Math.random() - 0.5) * shakeIntensity,
       y: (Math.random() - 0.5) * shakeIntensity
     }
     
     // 【方案 E: 色散位移 (RGB Shift)】
-    const shiftIntensity = volumeRatio * 15
+    const shiftIntensity = volumeRatio * VISUAL_CONFIG.rgbShiftIntensity
     rgbOffset.value = {
       x: (Math.random() - 0.5) * shiftIntensity,
       y: (Math.random() - 0.5) * shiftIntensity
@@ -204,6 +254,7 @@ const renderLoop = () => {
     // 【夜店模式：Hue-rotate 色彩循環，大聲時旋轉加速】
     const hueSpeed = 0.5 + volumeRatio * 5
     hueAngle = (hueAngle + hueSpeed) % 360
+    
     // 【方案 A: 背景光暈爆發—強烈紅粉雙色漸層】
     const auraSize2 = 50 + volumeRatio * 200
     const auraOpacity2 = 0.55 + volumeRatio * 0.45
@@ -211,7 +262,7 @@ const renderLoop = () => {
     auraRef.value.style.transform = `scale(${auraSize2 / 50})`
     auraRef.value.style.filter = `blur(80px) hue-rotate(${hueAngle}deg)`
 
-    // 【夜店模式：Strobe 閃頻，音量超過 0.7 時每 100ms 一閃】
+    // 【夜店模式：Strobe 閃頻，音量超過 0.7 時且加速度高時一閃】
     const now = Date.now()
     if (volumeRatio > 0.7 && now - lastStrobeTime > 100) {
       lastStrobeTime = now
@@ -222,7 +273,7 @@ const renderLoop = () => {
     }
 
     // lerp 平滑過渡
-    const lerpFactor = IMPACT_SMOOTHING
+    const lerpFactor = VISUAL_CONFIG.smoothingActive
     currentWdth = lerp(currentWdth, targetWdth, lerpFactor)
     currentWght = lerp(currentWght, targetWght, lerpFactor)
     currentSlnt = lerp(currentSlnt, targetSlnt, lerpFactor)
@@ -241,6 +292,9 @@ const renderLoop = () => {
     rgbOffset.value       = { x: 0, y: 0 }
     idleRotate.value      = Math.sin(Date.now() / 3500) * 2
 
+    // 恢復原始縮放比例
+    canvasRef.value.style.transform = `translate(${containerOffset.value.x}px, ${containerOffset.value.y}px) rotate(${idleRotate.value}deg) scale(1)`
+
     // 色彩循環：待機時緩慢轉動
     hueAngle = (hueAngle + 0.3) % 360
     // 【待機光暈：高飽和藍紫雙色漸層，透明度 0.85】
@@ -249,11 +303,12 @@ const renderLoop = () => {
     auraRef.value.style.transform = `scale(${auraSize / 50})`
     auraRef.value.style.filter = `blur(80px) hue-rotate(${hueAngle}deg)`
 
-    // lerp 平滑回待機
-    currentWdth = lerp(currentWdth, idleWdth, SMOOTHING)
-    currentWght = lerp(currentWght, idleWght, SMOOTHING)
-    currentSlnt = lerp(currentSlnt, 0, SMOOTHING)
-    currentGrad = lerp(currentGrad, idleGrad, SMOOTHING)
+    // lerp 平滑回待機 (這裡也加入一些物理彈性)
+    const idleLerp = VISUAL_CONFIG.smoothingIdle
+    currentWdth = lerp(currentWdth, idleWdth, idleLerp)
+    currentWght = lerp(currentWght, idleWght, idleLerp)
+    currentSlnt = lerp(currentSlnt, 0, idleLerp)
+    currentGrad = lerp(currentGrad, idleGrad, idleLerp)
   }
 
   // 最終寫入所有四個可變字型軸心至 DOM
@@ -544,42 +599,48 @@ onBeforeUnmount(() => {
   top: 1.5rem;
   right: 1.5rem;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.85);
   border: 1px solid rgba(255, 255, 150, 0.4);
   border-radius: 10px;
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  min-width: 260px;
+  gap: 1.25rem;
+  min-width: 320px;
   backdrop-filter: blur(10px);
 }
 
 .debug-title {
-  font-family: monospace;
-  font-size: 0.75rem;
-  letter-spacing: 0.15em;
+  font-family: inherit;
+  font-variation-settings: 'wght' 700;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
   color: rgba(255, 255, 100, 0.9);
   text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.5rem;
 }
 
 .debug-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
+  transition: opacity 0.2s ease;
 }
 
 .debug-row label {
   font-family: monospace;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
   white-space: nowrap;
+  min-width: 120px;
 }
 
 .debug-slider {
   flex: 1;
   accent-color: #facc15;
   cursor: pointer;
+  height: 6px;
 }
 
 .debug-val {
