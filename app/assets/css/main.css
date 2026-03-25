@@ -1,5 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,slnt,wdth,wght,GRAD@8..144,-10..0,25..151,100..1000,-200..150&display=swap');
 
+@font-face {
+  font-family: 'DFP King Gothic';
+  src: url('/fonts/DFPKingGothicTC1-VF.ttf') format('truetype');
+  font-weight: 100 600;
+  font-stretch: 75% 100%;
+}
+
 :root {
   --font-primary: 'Roboto Flex', sans-serif;
   --bg-color-idle:   #05080f; /* 近黑深夜感，讓藍色光暈更突出 */
