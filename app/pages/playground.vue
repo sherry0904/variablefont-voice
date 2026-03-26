@@ -24,7 +24,7 @@
         <div v-for="axis in availableAxes" :key="axis" class="control-group axis-slider">
           <label>
             <span>{{ axis.toUpperCase() }}</span>
-            <span class="axis-val">{{ Math.round(axisValues[axis]) || 0 }}</span>
+            <span class="axis-val">{{ Math.round(axisValues[axis] || 0) }}</span>
           </label>
           <input 
             type="range" 
