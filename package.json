@@ -6,6 +6,7 @@
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
+    "build:ftp": "NUXT_APP_BASE_URL=/frontend-test/variable-font-voice nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },
@@ -13,5 +14,8 @@
     "nuxt": "^4.4.2",
     "vue": "^3.5.30",
     "vue-router": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2"
   }
 }

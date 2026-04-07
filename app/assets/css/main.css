@@ -2,7 +2,7 @@
 
 @font-face {
   font-family: 'DFP King Gothic';
-  src: url('/fonts/DFPKingGothicTC1-VF-full.woff2') format('woff2');
+  src: url('~/assets/fonts/DFPKingGothicTC1-VF-full.woff2') format('woff2');
   font-weight: 100 600;
   font-stretch: 75% 100%;
 }
