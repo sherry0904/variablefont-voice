@@ -22,6 +22,18 @@ export interface FontConfig {
 }
 
 export const VARIABLE_FONTS: Record<string, FontConfig> = {
+  dfpKingGothic: {
+    id: 'dfpKingGothic',
+    name: '華康金剛黑',
+    cssFamily: "'DFP King Gothic', sans-serif",
+    supportedAxes: ['wdth', 'wght'], // Only weight and width supported
+    axes: {
+      volumeToWidth: { min: 75, max: 100, cssTag: 'wdth' }, // Based on inspection: min 75, max 100
+      volumeToWeight: { min: 100, max: 600, cssTag: 'wght' }, // Based on inspection: min 100, max 600
+      idleWidth: { min: 90, max: 95 },
+      idleWeight: { min: 300, max: 400 },
+    }
+  },
   robotoFlex: {
     id: 'robotoFlex',
     name: 'Roboto Flex',
@@ -36,18 +48,6 @@ export const VARIABLE_FONTS: Record<string, FontConfig> = {
       idleWeight: { min: 450, max: 550 },
       idleSlant: { min: 0, max: 0 },
       idleGrade: { min: -200, max: -100 },
-    }
-  },
-  dfpKingGothic: {
-    id: 'dfpKingGothic',
-    name: 'DFP King Gothic',
-    cssFamily: "'DFP King Gothic', sans-serif",
-    supportedAxes: ['wdth', 'wght'], // Only weight and width supported
-    axes: {
-      volumeToWidth: { min: 75, max: 100, cssTag: 'wdth' }, // Based on inspection: min 75, max 100
-      volumeToWeight: { min: 100, max: 600, cssTag: 'wght' }, // Based on inspection: min 100, max 600
-      idleWidth: { min: 90, max: 95 },
-      idleWeight: { min: 300, max: 400 },
     }
   }
 };

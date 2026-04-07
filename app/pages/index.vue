@@ -48,7 +48,7 @@
             </select>
           </div>
 
-          <NuxtLink to="/playground" class="playground-link">去測字型 (Playground) →</NuxtLink>
+          <NuxtLink to="/playground" class="playground-link">Playground →</NuxtLink>
         </div>
       </div>
     </Transition>
@@ -172,7 +172,7 @@ const visualizerColor = computed(() => {
   return '#c084fc'                 // 紫色 (咆咆狀態)
 })
 
-const currentFontId = useState<string>('globalFontId', () => 'robotoFlex')
+const currentFontId = useState<string>('globalFontId', () => 'dfpKingGothic')
 const currentFont = computed(() => VARIABLE_FONTS[currentFontId.value]!)
 
 const canvasRef = ref<HTMLElement | null>(null)
@@ -508,8 +508,8 @@ onBeforeUnmount(() => {
 
 .hero-title {
   font-family: var(--font-primary);
-  font-variation-settings: 'wght' 800, 'wdth' 120;
-  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-variation-settings: 'wght' 600, 'wdth' 100;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: white;
@@ -560,7 +560,7 @@ onBeforeUnmount(() => {
 .start-btn:hover {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.6);
-  font-variation-settings: 'wght' 700, 'wdth' 115;
+  font-variation-settings: 'wght' 600, 'wdth' 100;
   box-shadow:
     0 0 40px rgba(100, 150, 255, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);

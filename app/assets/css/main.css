@@ -8,7 +8,7 @@
 }
 
 :root {
-  --font-primary: 'Roboto Flex', sans-serif;
+  --font-primary: 'DFP King Gothic', sans-serif;
   --bg-color-idle:   #05080f; /* 近黑深夜感，讓藍色光暈更突出 */
   --bg-color-active: #05080f; /* 爆發時維持暗底，讓紅色光暈單獨發光 */
 }

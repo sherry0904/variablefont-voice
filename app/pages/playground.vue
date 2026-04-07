@@ -63,7 +63,7 @@ import { ref, computed, reactive, watch } from 'vue'
 import { VARIABLE_FONTS } from '~/config/fonts'
 
 // State
-const currentFontId = useState<string>('globalFontId', () => 'robotoFlex')
+const currentFontId = useState<string>('globalFontId', () => 'dfpKingGothic')
 const currentFont = computed(() => VARIABLE_FONTS[currentFontId.value]!)
 const previewText = ref('VOICE\n可變字型')
 
