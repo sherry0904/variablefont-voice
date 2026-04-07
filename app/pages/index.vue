@@ -48,7 +48,7 @@
             </select>
           </div>
 
-          <NuxtLink to="/playground" class="playground-link">Playground →</NuxtLink>
+          <NuxtLink to="/playground" class="playground-link">Playground) →</NuxtLink>
         </div>
       </div>
     </Transition>
@@ -66,13 +66,52 @@
 
     <!-- 左上角字型選擇與狀態列 -->
     <div v-if="isListening" class="live-ui">
-      <div class="font-switcher top-left">
-        <select v-model="currentFontId">
-          <option v-for="font in Object.values(VARIABLE_FONTS)" :key="font.id" :value="font.id">
-            目前字型：{{ font.name }}
-          </option>
-        </select>
+      <div class="top-row-controls">
+        <div class="font-switcher top-left">
+          <select v-model="currentFontId">
+            <option v-for="font in Object.values(VARIABLE_FONTS)" :key="font.id" :value="font.id">
+              目前字型：{{ font.name }}
+            </option>
+          </select>
+        </div>
+        
+        <!-- 面板開關按鈕 -->
+        <button 
+          class="monitor-toggle" 
+          @click="showMonitor = !showMonitor"
+          :class="{ active: showMonitor }"
+          title="切換數據監測面板"
+        >
+          <span class="toggle-text">{{ showMonitor ? '隱藏數值' : '顯示數值' }}</span>
+        </button>
       </div>
+
+      <!-- 實時軸心監測面板 -->
+      <Transition name="monitor-fade">
+        <div v-if="showMonitor" class="axis-monitor">
+          <div 
+            v-for="tag in currentFont.supportedAxes" 
+            :key="tag"
+            class="axis-display-item"
+          >
+            <div class="axis-tag">{{ tag.toUpperCase() }}</div>
+            <div class="axis-val-group">
+              <span class="axis-current-val">{{ Math.round(liveAxes[tag] ?? 0) }}</span>
+              <!-- 能量條與極限值標籤 -->
+              <div class="axis-mini-bar-container">
+                <span class="axis-limit-val min">{{ getAxisRange(tag).min }}</span>
+                <div class="axis-mini-bar">
+                   <div 
+                     class="axis-mini-fill"
+                     :style="{ width: `${getAxisPercent(tag)}%` }"
+                   ></div>
+                </div>
+                <span class="axis-limit-val max">{{ getAxisRange(tag).max }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
 
       <!-- Audio Visualizer Status Bar -->
       <div class="audio-visualizer">
@@ -134,14 +173,14 @@
         </div>
         <div class="debug-hint">按 D 關閉 · 滑到 0 恢復麥克風</div>
         <div class="divider"></div>
-        <NuxtLink to="/playground" class="debug-playground-link">前往字型測試場域 (Playground) →</NuxtLink>
+        <NuxtLink to="/playground" class="debug-playground-link">Playground →</NuxtLink>
       </div>
     </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, reactive, watch } from 'vue'
 import { useAudioAnalyzer } from '~/composables/useAudioAnalyzer'
 import { lerp, getSineWave } from '~/composables/useMath'
 import { VARIABLE_FONTS } from '~/config/fonts'
@@ -207,6 +246,9 @@ const rgbOffset = ref({ x: 0, y: 0 })
 const idleRotate = ref(0)
 const idleFloatOffset = ref(0) // 內部輔助呼吸高度
 
+// 是否顯示實時監測面板
+const showMonitor = ref(true)
+
 // 夜店模式：Hue-rotate 計時器與閃頻狀態
 let hueAngle = 0
 let lastStrobeTime = 0
@@ -218,14 +260,59 @@ let currentWght  = currentFont.value.axes.idleWeight?.min ?? 400
 let currentSlnt  = 0
 let currentGrad  = currentFont.value.axes.idleGrade?.min ?? 0
 
+// 響應式狀態，用於在 UI 顯示數值
+const liveAxes = reactive<Record<string, number>>({
+  wdth: 100,
+  wght: 400,
+  slnt: 0,
+  GRAD: 0
+})
+
+// 取得特定軸心在當前字型下的數值範圍
+const getAxisRange = (tag: string) => {
+  const font = currentFont.value
+  let min = 0
+  let max = 100
+  
+  if (tag === 'wdth') {
+    min = font.axes.volumeToWidth?.min ?? 75
+    max = font.axes.volumeToWidth?.max ?? 100
+  } else if (tag === 'wght') {
+    min = font.axes.volumeToWeight?.min ?? 100
+    max = font.axes.volumeToWeight?.max ?? 600
+  } else if (tag === 'slnt') {
+    min = font.axes.volumeToSlant?.max ?? -10
+    max = font.axes.volumeToSlant?.min ?? 0
+  } else if (tag === 'GRAD') {
+    min = font.axes.volumeToGrade?.min ?? -200
+    max = font.axes.volumeToGrade?.max ?? 150
+  }
+  
+  return { min, max }
+}
+
+// 計算軸心在該字型定義範圍內的百分比，用於進度條顯示
+const getAxisPercent = (tag: string) => {
+  const { min, max } = getAxisRange(tag)
+  const val = liveAxes[tag] ?? min
+  
+  if (max === min) return 0
+  return Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100))
+}
+
 // 當字型切換時，重置內部變數到該字型的預設值
-import { watch } from 'vue'
 watch(currentFontId, (newId) => {
   const font = VARIABLE_FONTS[newId as string]!
   currentWdth = font.axes.idleWidth?.min ?? 100
   currentWght = font.axes.idleWeight?.min ?? 400
   currentSlnt = font.axes.idleSlant?.min ?? 0
   currentGrad = font.axes.idleGrade?.min ?? 0
+  
+  // 同步重置 UI 顯示
+  liveAxes.wdth = currentWdth
+  liveAxes.wght = currentWght
+  liveAxes.slnt = currentSlnt
+  liveAxes.GRAD = currentGrad
 })
 
 const handleStart = () => {
@@ -370,6 +457,12 @@ const renderLoop = () => {
 
   canvasRef.value.style.fontVariationSettings = settings.join(', ')
   canvasRef.value.style.fontFamily = font.cssFamily
+
+  // 同步數值至 UI 監測面板
+  if (font.supportedAxes.includes('wdth')) liveAxes.wdth = currentWdth
+  if (font.supportedAxes.includes('wght')) liveAxes.wght = currentWght
+  if (font.supportedAxes.includes('slnt')) liveAxes.slnt = currentSlnt
+  if (font.supportedAxes.includes('GRAD')) liveAxes.GRAD = currentGrad
 
   // 4. 要求次一影格繼續執行
   animationFrameId = requestAnimationFrame(renderLoop)
@@ -773,9 +866,7 @@ onBeforeUnmount(() => {
 }
 
 .font-switcher.top-left {
-  position: absolute;
-  top: 2rem;
-  left: 2rem;
+  position: static;
 }
 
 .font-switcher select {
@@ -793,5 +884,131 @@ onBeforeUnmount(() => {
 .font-switcher select option {
   background: #111;
   color: white;
+}
+
+.top-row-controls {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 60;
+}
+
+.monitor-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  font-family: monospace;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.monitor-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: white;
+}
+
+.monitor-toggle.active {
+  background: rgba(250, 204, 21, 0.1);
+  border-color: rgba(250, 204, 21, 0.4);
+  color: #facc15;
+}
+
+/* Axis Monitor Styles */
+.axis-monitor {
+  position: absolute;
+  top: 5rem; /* Adjusted for top-row-controls height */
+  left: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 180px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* Monitor Transitions */
+.monitor-fade-enter-active,
+.monitor-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.monitor-fade-enter-from,
+.monitor-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+}
+
+.axis-display-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.axis-tag {
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+}
+
+.axis-val-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.axis-current-val {
+  font-family: monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #facc15; /* 亮黃色，與音量條呼應 */
+  min-width: 3.5ch;
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.3);
+}
+
+.axis-mini-bar-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.axis-limit-val {
+  font-family: monospace;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.25);
+  min-width: 2.5ch;
+  text-align: center;
+}
+
+.axis-mini-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.axis-mini-fill {
+  height: 100%;
+  background: #facc15;
+  border-radius: 2px;
+  transition: width 0.1s ease-out;
 }
 </style>
