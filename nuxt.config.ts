@@ -6,15 +6,18 @@ export default defineNuxtConfig({
   app: {
     baseURL: process.env.NUXT_APP_BASE_URL || '/',
     head: {
-      title: '可變字型聲音互動 | Variable Font × Voice',
+      title: '華康 | 可變字型聲音互動 | Variable Font × Voice',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: '一場利用麥克風聲音即時驅動可變字型 (Variable Font) 的網頁排版互動實驗。' }
+        { name: 'description', content: '透過麥克風即時捕捉音量與頻率變化，動態驅動可變字型 (Variable Font) 的多維變化。這是一場將聲音轉化為視覺壓迫感與生命力的網頁排版互動實驗。' },
+        // Open Graph
+        { property: 'og:title', content: '華康 | 可變字型聲音互動 | Variable Font × Voice' },
+        { property: 'og:description', content: '這是一場將聲音轉化為視覺壓迫感與生命力的網頁排版互動實驗。即時捕捉聲音數據，賦予文字動態生命。' },
+        { property: 'og:type', content: 'website' },
       ],
       link: [
-        // 使用一個帶有粗體 'V' 或是麥克風 Emoji 的簡約 SVG 當作 Favicon
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.ico'}
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico'}
       ]
     }
   }
