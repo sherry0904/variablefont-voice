@@ -70,7 +70,7 @@
         <div class="font-switcher top-left">
           <select v-model="currentFontId">
             <option v-for="font in Object.values(VARIABLE_FONTS)" :key="font.id" :value="font.id">
-              目前字型：{{ font.name }}
+              字型：{{ font.name }}
             </option>
           </select>
         </div>
@@ -247,7 +247,7 @@ const idleRotate = ref(0)
 const idleFloatOffset = ref(0) // 內部輔助呼吸高度
 
 // 是否顯示實時監測面板
-const showMonitor = ref(true)
+const showMonitor = ref(false)
 
 // 夜店模式：Hue-rotate 計時器與閃頻狀態
 let hueAngle = 0

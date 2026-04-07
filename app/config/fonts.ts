@@ -34,20 +34,20 @@ export const VARIABLE_FONTS: Record<string, FontConfig> = {
       idleWeight: { min: 300, max: 400 },
     }
   },
-  robotoFlex: {
-    id: 'robotoFlex',
-    name: 'Roboto Flex',
-    cssFamily: "'Roboto Flex', sans-serif",
-    supportedAxes: ['wdth', 'wght', 'slnt', 'GRAD'],
-    axes: {
-      volumeToWidth: { min: 25, max: 150, cssTag: 'wdth' },
-      volumeToWeight: { min: 100, max: 1000, cssTag: 'wght' },
-      volumeToSlant: { min: 0, max: -10, cssTag: 'slnt' },
-      volumeToGrade: { min: -200, max: 150, cssTag: 'GRAD' },
-      idleWidth: { min: 35, max: 40 },
-      idleWeight: { min: 450, max: 550 },
-      idleSlant: { min: 0, max: 0 },
-      idleGrade: { min: -200, max: -100 },
-    }
-  }
+  // robotoFlex: {
+  //   id: 'robotoFlex',
+  //   name: 'Roboto Flex',
+  //   cssFamily: "'Roboto Flex', sans-serif",
+  //   supportedAxes: ['wdth', 'wght', 'slnt', 'GRAD'],
+  //   axes: {
+  //     volumeToWidth: { min: 25, max: 150, cssTag: 'wdth' },
+  //     volumeToWeight: { min: 100, max: 1000, cssTag: 'wght' },
+  //     volumeToSlant: { min: 0, max: -10, cssTag: 'slnt' },
+  //     volumeToGrade: { min: -200, max: 150, cssTag: 'GRAD' },
+  //     idleWidth: { min: 35, max: 40 },
+  //     idleWeight: { min: 450, max: 550 },
+  //     idleSlant: { min: 0, max: 0 },
+  //     idleGrade: { min: -200, max: -100 },
+  //   }
+  // }
 };
