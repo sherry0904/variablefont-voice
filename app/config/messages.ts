@@ -1,6 +1,6 @@
 export type Locale = 'ja' | 'zh-TW' | 'en';
 
-export const DEFAULT_LOCALE: Locale = 'en';
+export const DEFAULT_LOCALE: Locale = 'ja';
 export const DEBUG_LOCALE: Locale = 'zh-TW';
 
 export const MESSAGES = {
