@@ -2,15 +2,15 @@
   <div class="playground-container" :style="{ backgroundColor: 'var(--bg-color-idle)' }">
     <!-- Header -->
     <header class="header">
-      <NuxtLink :to="homeRoute" class="back-btn">← 回聲音互動</NuxtLink>
-      <h1 class="title">可變字型測試場域 (Playground)</h1>
+      <NuxtLink :to="homeRoute" class="back-btn">{{ text.backToExperience }}</NuxtLink>
+      <h1 class="title">{{ text.title }}</h1>
     </header>
 
     <div class="content">
       <!-- 控制面板 -->
       <aside class="controls">
         <div class="control-group">
-          <label class="font-label">選擇字型</label>
+          <label class="font-label">{{ text.fontLabel }}</label>
           <select class="font-select" v-model="currentFontId">
             <option v-for="font in availableFonts" :key="font.id" :value="font.id">
               {{ font.name }}
@@ -36,7 +36,7 @@
           />
         </div>
 
-        <button @click="resetAxes" class="reset-btn">重設預設值</button>
+        <button @click="resetAxes" class="reset-btn">{{ text.resetButton }}</button>
       </aside>
 
       <!-- 預覽區 -->
@@ -48,7 +48,7 @@
             fontFamily: currentFont.cssFamily,
             fontVariationSettings: currentVariationSettings
           }"
-          placeholder="輸入文字測試..."
+          :placeholder="text.inputPlaceholder"
         ></textarea>
         <div class="css-display">
           font-variation-settings: {{ currentVariationSettings || 'normal' }};
@@ -61,8 +61,10 @@
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue'
 import { DEFAULT_FONT_ID, VARIABLE_FONTS, getVisibleFonts } from '~/config/fonts'
+import { DEFAULT_LOCALE, MESSAGES } from '~/config/messages'
 
 // State
+const text = MESSAGES[DEFAULT_LOCALE].playground
 const route = useRoute()
 const isDevFontMode = computed(() => route.query.dev === '1')
 const devRouteQuery = computed(() => isDevFontMode.value ? { dev: '1' } : undefined)

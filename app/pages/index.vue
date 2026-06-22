@@ -17,17 +17,17 @@
 
         <!-- 主標題 -->
         <div class="hero">
-          <h1 class="hero-title">声で変わる文字</h1>
+          <h1 class="hero-title">{{ text.heroTitle }}</h1>
           <p class="hero-desc">
-            声の大きさと高さに合わせて、<br>
-            文字のかたちが変化します。
+            {{ text.heroDescriptionLine1 }}<br>
+            {{ text.heroDescriptionLine2 }}
           </p>
 
           <button @click="handleStart" class="start-btn">
             <span class="btn-icon">🎙</span>
-            <span class="btn-text">はじめる</span>
+            <span class="btn-text">{{ text.startButton }}</span>
           </button>
-          <p class="hint">マイクの使用を許可してください。音声はこの体験内でのみ使用されます。</p>
+          <p class="hint">{{ text.micHint }}</p>
         </div>
 
         <!-- 右下角技術標籤與前往訓練場 -->
@@ -67,7 +67,7 @@
         <div class="font-switcher top-left">
           <select v-model="currentFontId">
             <option v-for="font in availableFonts" :key="font.id" :value="font.id">
-              字型：{{ font.name }}
+              {{ text.fontPrefix }}{{ font.name }}
             </option>
           </select>
         </div>
@@ -77,9 +77,9 @@
           class="monitor-toggle" 
           @click="showMonitor = !showMonitor"
           :class="{ active: showMonitor }"
-          title="切換數據監測面板"
+          :title="text.monitorToggleTitle"
         >
-          <span class="toggle-text">{{ showMonitor ? '隱藏數值' : '顯示數值' }}</span>
+          <span class="toggle-text">{{ showMonitor ? text.hideValues : text.showValues }}</span>
         </button>
       </div>
 
@@ -137,7 +137,7 @@
       <div v-if="showDebug" class="debug-panel">
         <div class="debug-title">🛠 DEBUG MODE</div>
         <div class="debug-row">
-          <label>模擬音量 Volume</label>
+          <label>{{ debugText.volumeLabel }}</label>
           <input 
             type="range" 
             min="0" max="1" step="0.01"
@@ -147,7 +147,7 @@
           <span class="debug-val">{{ Math.round(debugVolume * 100) }}%</span>
         </div>
         <div class="debug-row" :style="{ opacity: debugVolume > 0 ? 1 : 0.5 }">
-          <label>模擬音高 Pitch</label>
+          <label>{{ debugText.pitchLabel }}</label>
           <input 
             type="range" 
             min="0" max="1" step="0.01"
@@ -158,7 +158,7 @@
           <span class="debug-val">{{ Math.round(debugPitch * 100) }}%</span>
         </div>
         <div class="debug-row" :style="{ opacity: debugVolume > 0 && hasDeltaDrivenAxis ? 1 : 0.5 }">
-          <label>模擬爆發 Delta</label>
+          <label>{{ debugText.deltaLabel }}</label>
           <input 
             type="range" 
             min="0" max="1" step="0.01"
@@ -168,7 +168,7 @@
           />
           <span class="debug-val">{{ Math.round(debugDelta * 100) }}%</span>
         </div>
-        <div class="debug-hint">按 D 關閉 · 滑到 0 恢復麥克風</div>
+        <div class="debug-hint">{{ debugText.hint }}</div>
         <div class="divider"></div>
         <NuxtLink :to="playgroundRoute" class="debug-playground-link">Playground →</NuxtLink>
       </div>
@@ -181,8 +181,11 @@ import { ref, onMounted, onBeforeUnmount, computed, reactive, watch } from 'vue'
 import { useAudioAnalyzer } from '~/composables/useAudioAnalyzer'
 import { lerp, getSineWave } from '~/composables/useMath'
 import { DEFAULT_FONT_ID, VARIABLE_FONTS, getVisibleFonts, type AxisConfig } from '~/config/fonts'
+import { DEBUG_LOCALE, DEFAULT_LOCALE, MESSAGES } from '~/config/messages'
 
 const { isListening, rawVolume, volumeDelta, pitch, startListening, stopListening } = useAudioAnalyzer()
+const text = MESSAGES[DEFAULT_LOCALE].index
+const debugText = MESSAGES[DEBUG_LOCALE].debug
 
 // ========== 動態互動視覺參數設定區 ==========
 // 你可以在這裡調整所有字體和視覺反應的幅度！

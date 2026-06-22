@@ -1,5 +1,7 @@
 import { ref } from 'vue'
 
+import { DEFAULT_LOCALE, MESSAGES } from '~/config/messages'
+
 // ========== 聲音分析引擎參數設定區 ==========
 // 調整麥克風收音與分析的核心設定
 export const AUDIO_CONFIG = {
@@ -51,8 +53,8 @@ export const useAudioAnalyzer = () => {
       isListening.value = true
       updateVolumeLoop()
     } catch (err) {
-      console.error('取得麥克風權限失敗:', err)
-      alert('請允許麥克風權限以啟動聲音視覺化。')
+      console.error('マイクの使用許可を取得できませんでした:', err)
+      alert(MESSAGES[DEFAULT_LOCALE].audio.micPermissionError)
     }
   }
 
