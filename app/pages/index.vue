@@ -17,38 +17,35 @@
 
         <!-- 主標題 -->
         <div class="hero">
-          <h1 class="hero-title">你敢大聲嗎</h1>
+          <h1 class="hero-title">声で変わる文字</h1>
           <p class="hero-desc">
-            你的音量越大，<br>
-            文字就越張狂。
+            声の大きさと高さに合わせて、<br>
+            文字のかたちが変化します。
           </p>
 
           <button @click="handleStart" class="start-btn">
             <span class="btn-icon">🎙</span>
-            <span class="btn-text">我敢！</span>
+            <span class="btn-text">はじめる</span>
           </button>
-          <p class="hint">需要允許麥克風權限</p>
+          <p class="hint">マイクの使用を許可してください。音声はこの体験内でのみ使用されます。</p>
         </div>
 
         <!-- 右下角技術標籤與前往訓練場 -->
         <div class="tech-tags-container">
           <div class="tech-tags">
-            <span v-if="currentFont.supportedAxes.includes('wdth')">wdth</span>
-            <span v-if="currentFont.supportedAxes.includes('wght')">wght</span>
-            <span v-if="currentFont.supportedAxes.includes('slnt')">slnt</span>
-            <span v-if="currentFont.supportedAxes.includes('GRAD')">GRAD</span>
+            <span v-for="tag in currentFont.supportedAxes" :key="tag">{{ tag }}</span>
           </div>
           
           <!-- 字型選擇器 -->
           <div class="font-switcher">
             <select v-model="currentFontId">
-              <option v-for="font in Object.values(VARIABLE_FONTS)" :key="font.id" :value="font.id">
+              <option v-for="font in availableFonts" :key="font.id" :value="font.id">
                 {{ font.name }}
               </option>
             </select>
           </div>
 
-          <NuxtLink to="/playground" class="playground-link">Playground) →</NuxtLink>
+          <NuxtLink :to="playgroundRoute" class="playground-link">Playground) →</NuxtLink>
         </div>
       </div>
     </Transition>
@@ -69,7 +66,7 @@
       <div class="top-row-controls">
         <div class="font-switcher top-left">
           <select v-model="currentFontId">
-            <option v-for="font in Object.values(VARIABLE_FONTS)" :key="font.id" :value="font.id">
+            <option v-for="font in availableFonts" :key="font.id" :value="font.id">
               字型：{{ font.name }}
             </option>
           </select>
@@ -160,20 +157,20 @@
           />
           <span class="debug-val">{{ Math.round(debugPitch * 100) }}%</span>
         </div>
-        <div class="debug-row" :style="{ opacity: debugVolume > 0 && currentFont.supportedAxes.includes('slnt') ? 1 : 0.5 }">
+        <div class="debug-row" :style="{ opacity: debugVolume > 0 && hasDeltaDrivenAxis ? 1 : 0.5 }">
           <label>模擬爆發 Delta</label>
           <input 
             type="range" 
             min="0" max="1" step="0.01"
             v-model.number="debugDelta"
             class="debug-slider"
-            :disabled="debugVolume === 0 || !currentFont.supportedAxes.includes('slnt')"
+            :disabled="debugVolume === 0 || !hasDeltaDrivenAxis"
           />
           <span class="debug-val">{{ Math.round(debugDelta * 100) }}%</span>
         </div>
         <div class="debug-hint">按 D 關閉 · 滑到 0 恢復麥克風</div>
         <div class="divider"></div>
-        <NuxtLink to="/playground" class="debug-playground-link">Playground →</NuxtLink>
+        <NuxtLink :to="playgroundRoute" class="debug-playground-link">Playground →</NuxtLink>
       </div>
     </Transition>
   </div>
@@ -183,7 +180,7 @@
 import { ref, onMounted, onBeforeUnmount, computed, reactive, watch } from 'vue'
 import { useAudioAnalyzer } from '~/composables/useAudioAnalyzer'
 import { lerp, getSineWave } from '~/composables/useMath'
-import { VARIABLE_FONTS } from '~/config/fonts'
+import { DEFAULT_FONT_ID, VARIABLE_FONTS, getVisibleFonts, type AxisConfig } from '~/config/fonts'
 
 const { isListening, rawVolume, volumeDelta, pitch, startListening, stopListening } = useAudioAnalyzer()
 
@@ -211,15 +208,30 @@ const visualizerColor = computed(() => {
   return '#c084fc'                 // 紫色 (咆咆狀態)
 })
 
-const currentFontId = useState<string>('globalFontId', () => 'dfpKingGothic')
-const currentFont = computed(() => VARIABLE_FONTS[currentFontId.value]!)
+const route = useRoute()
+const isDevFontMode = computed(() => route.query.dev === '1')
+const devRouteQuery = computed(() => isDevFontMode.value ? { dev: '1' } : undefined)
+const playgroundRoute = computed(() => ({ path: '/playground', query: devRouteQuery.value }))
+const availableFonts = computed(() => getVisibleFonts(isDevFontMode.value))
+
+const currentFontId = useState<string>('globalFontId', () => DEFAULT_FONT_ID)
+const currentFont = computed(() => VARIABLE_FONTS[currentFontId.value] ?? VARIABLE_FONTS[DEFAULT_FONT_ID]!)
+const hasDeltaDrivenAxis = computed(() => {
+  return currentFont.value.supportedAxes.some((tag) => currentFont.value.axes[tag]?.input === 'delta')
+})
+
+watch(availableFonts, (fonts) => {
+  if (!fonts.some((font) => font.id === currentFontId.value)) {
+    currentFontId.value = DEFAULT_FONT_ID
+  }
+}, { immediate: true })
 
 const canvasRef = ref<HTMLElement | null>(null)
 const auraRef = ref<HTMLElement | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
 
 // 畫面上要填滿被擠壓的文字
-const displayWord = "VOICE"
+const displayWord = computed(() => currentFont.value.defaultText)
 const THRESHOLD = 0.05 // 音量過濾門檻，過濾環境音
 
 // Debug 模式
@@ -255,40 +267,38 @@ let lastStrobeTime = 0
 
 // 內部變數 (無 Reactivity 開銷)
 let animationFrameId: number
-let currentWdth  = currentFont.value.axes.idleWidth?.min ?? 100
-let currentWght  = currentFont.value.axes.idleWeight?.min ?? 400
-let currentSlnt  = 0
-let currentGrad  = currentFont.value.axes.idleGrade?.min ?? 0
+const currentAxisValues: Record<string, number> = {}
 
 // 響應式狀態，用於在 UI 顯示數值
-const liveAxes = reactive<Record<string, number>>({
-  wdth: 100,
-  wght: 400,
-  slnt: 0,
-  GRAD: 0
-})
+const liveAxes = reactive<Record<string, number>>({})
+
+const getAxisInitialValue = (axis: AxisConfig) => {
+  return axis.idle?.min ?? axis.min
+}
+
+const resetAxisValues = () => {
+  const font = currentFont.value
+
+  for (const tag of Object.keys(currentAxisValues)) delete currentAxisValues[tag]
+  for (const tag of Object.keys(liveAxes)) delete liveAxes[tag]
+
+  for (const tag of font.supportedAxes) {
+    const axis = font.axes[tag]
+    if (!axis) continue
+
+    const initialValue = getAxisInitialValue(axis)
+    currentAxisValues[tag] = initialValue
+    liveAxes[tag] = initialValue
+  }
+}
 
 // 取得特定軸心在當前字型下的數值範圍
 const getAxisRange = (tag: string) => {
-  const font = currentFont.value
-  let min = 0
-  let max = 100
-  
-  if (tag === 'wdth') {
-    min = font.axes.volumeToWidth?.min ?? 75
-    max = font.axes.volumeToWidth?.max ?? 100
-  } else if (tag === 'wght') {
-    min = font.axes.volumeToWeight?.min ?? 100
-    max = font.axes.volumeToWeight?.max ?? 600
-  } else if (tag === 'slnt') {
-    min = font.axes.volumeToSlant?.max ?? -10
-    max = font.axes.volumeToSlant?.min ?? 0
-  } else if (tag === 'GRAD') {
-    min = font.axes.volumeToGrade?.min ?? -200
-    max = font.axes.volumeToGrade?.max ?? 150
+  const axis = currentFont.value.axes[tag]
+  return {
+    min: axis?.min ?? 0,
+    max: axis?.max ?? 100
   }
-  
-  return { min, max }
 }
 
 // 計算軸心在該字型定義範圍內的百分比，用於進度條顯示
@@ -300,20 +310,54 @@ const getAxisPercent = (tag: string) => {
   return Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100))
 }
 
-// 當字型切換時，重置內部變數到該字型的預設值
-watch(currentFontId, (newId) => {
-  const font = VARIABLE_FONTS[newId as string]!
-  currentWdth = font.axes.idleWidth?.min ?? 100
-  currentWght = font.axes.idleWeight?.min ?? 400
-  currentSlnt = font.axes.idleSlant?.min ?? 0
-  currentGrad = font.axes.idleGrade?.min ?? 0
-  
-  // 同步重置 UI 顯示
-  liveAxes.wdth = currentWdth
-  liveAxes.wght = currentWght
-  liveAxes.slnt = currentSlnt
-  liveAxes.GRAD = currentGrad
-})
+watch(currentFontId, resetAxisValues, { immediate: true })
+
+const getRatioValue = (axis: AxisConfig, ratio: number) => {
+  return axis.min + ratio * (axis.max - axis.min)
+}
+
+const getActiveAxisTarget = (
+  axis: AxisConfig,
+  volumeRatio: number,
+  effectivePitch: number,
+  effectiveDelta: number
+) => {
+  const input = axis.input ?? 'none'
+
+  if (input === 'volume') return getRatioValue(axis, volumeRatio)
+  if (input === 'pitch') return getRatioValue(axis, effectivePitch)
+  if (input === 'pitchInverse') return getRatioValue(axis, 1 - effectivePitch)
+  if (input === 'delta') {
+    const deltaRatio = Math.min(1, Math.max(0, effectiveDelta * VISUAL_CONFIG.slantMultiplier))
+    return getRatioValue(axis, deltaRatio)
+  }
+
+  return getAxisInitialValue(axis)
+}
+
+const getIdleAxisTarget = (axis: AxisConfig, sinValue: number) => {
+  if (!axis.idle) return getAxisInitialValue(axis)
+  return axis.idle.min + sinValue * (axis.idle.max - axis.idle.min)
+}
+
+const getVariationSettings = () => {
+  return currentFont.value.supportedAxes
+    .map((tag) => {
+      const axis = currentFont.value.axes[tag]
+      const value = currentAxisValues[tag] ?? (axis ? getAxisInitialValue(axis) : 0)
+      const decimals = axis?.decimals ?? 2
+      return `'${tag}' ${value.toFixed(decimals)}`
+    })
+    .join(', ')
+}
+
+const syncLiveAxisValues = () => {
+  for (const tag of currentFont.value.supportedAxes) {
+    const axis = currentFont.value.axes[tag]
+    if (!axis) continue
+    liveAxes[tag] = currentAxisValues[tag] ?? getAxisInitialValue(axis)
+  }
+}
 
 const handleStart = () => {
   startListening()
@@ -344,30 +388,6 @@ const renderLoop = () => {
     // 【爆發狀態】由聲音音量控制
     isExploding = true
     volumeRatio = Math.min((effectiveVolume - THRESHOLD) / (1 - THRESHOLD), 1)
-    
-    // 將 0-1 映射到設定檔定義的最大最小值
-    // 1. 音量 (Volume) 控制 字寬 (Width)
-    const targetWdth = font.axes.volumeToWidth 
-      ? font.axes.volumeToWidth.min + volumeRatio * (font.axes.volumeToWidth.max - font.axes.volumeToWidth.min)
-      : currentWdth
-    
-    // 2. 音高 (Pitch) 控制 字重 (Weight)。高音(effectivePitch=1)細，低音(effectivePitch=0)粗
-    const targetWght = font.axes.volumeToWeight
-      ? font.axes.volumeToWeight.min + (1 - effectivePitch) * (font.axes.volumeToWeight.max - font.axes.volumeToWeight.min)
-      : currentWght
-
-    // 3. 瞬間爆發力 (Delta) 控制 傾斜度 (Slant)
-    let targetSlnt = currentSlnt
-    if (font.axes.volumeToSlant) {
-      let slantRatio = effectiveDelta * VISUAL_CONFIG.slantMultiplier // 放大爆發力的影響
-      slantRatio = Math.min(1, Math.max(0, slantRatio))
-      targetSlnt = font.axes.volumeToSlant.min + slantRatio * (font.axes.volumeToSlant.max - font.axes.volumeToSlant.min)
-    }
-
-    // 次要屬性
-    const targetGrad = font.axes.volumeToGrade 
-      ? font.axes.volumeToGrade.min + volumeRatio * (font.axes.volumeToGrade.max - font.axes.volumeToGrade.min)
-      : currentGrad
     
     // 4. 音量控制 字級/縮放 (Size/Scale)
     const targetScale = 1 + volumeRatio * VISUAL_CONFIG.maxScale
@@ -411,17 +431,18 @@ const renderLoop = () => {
 
     // lerp 平滑過渡
     const lerpFactor = VISUAL_CONFIG.smoothingActive
-    currentWdth = lerp(currentWdth, targetWdth, lerpFactor)
-    currentWght = lerp(currentWght, targetWght, lerpFactor)
-    currentSlnt = lerp(currentSlnt, targetSlnt, lerpFactor)
-    currentGrad = lerp(currentGrad, targetGrad, lerpFactor)
+    for (const tag of font.supportedAxes) {
+      const axis = font.axes[tag]
+      if (!axis) continue
+
+      const currentValue = currentAxisValues[tag] ?? getAxisInitialValue(axis)
+      const targetValue = getActiveAxisTarget(axis, volumeRatio, effectivePitch, effectiveDelta)
+      currentAxisValues[tag] = lerp(currentValue, targetValue, lerpFactor)
+    }
 
   } else {
     // 【待機狀態】
     const sinValue = getSineWave(1500)
-    const idleWdth = font.axes.idleWidth ? font.axes.idleWidth.min + sinValue * (font.axes.idleWidth.max - font.axes.idleWidth.min) : currentWdth
-    const idleWght = font.axes.idleWeight ? font.axes.idleWeight.min + sinValue * (font.axes.idleWeight.max - font.axes.idleWeight.min) : currentWght
-    const idleGrad = font.axes.idleGrade ? font.axes.idleGrade.min + sinValue * (font.axes.idleGrade.max - font.axes.idleGrade.min) : currentGrad
 
     // 待機重置
     idleFloatOffset.value = Math.sin(Date.now() / 2500) * 15
@@ -442,27 +463,22 @@ const renderLoop = () => {
 
     // lerp 平滑回待機 (這裡也加入一些物理彈性)
     const idleLerp = VISUAL_CONFIG.smoothingIdle
-    currentWdth = lerp(currentWdth, idleWdth, idleLerp)
-    currentWght = lerp(currentWght, idleWght, idleLerp)
-    currentSlnt = lerp(currentSlnt, 0, idleLerp)
-    currentGrad = lerp(currentGrad, idleGrad, idleLerp)
+    for (const tag of font.supportedAxes) {
+      const axis = font.axes[tag]
+      if (!axis) continue
+
+      const currentValue = currentAxisValues[tag] ?? getAxisInitialValue(axis)
+      const targetValue = getIdleAxisTarget(axis, sinValue)
+      currentAxisValues[tag] = lerp(currentValue, targetValue, idleLerp)
+    }
   }
 
   // 動態寫入僅該字型支援的可變字型軸心至 DOM
-  const settings = []
-  if (font.supportedAxes.includes('wdth')) settings.push(`'wdth' ${currentWdth.toFixed(2)}`)
-  if (font.supportedAxes.includes('wght')) settings.push(`'wght' ${currentWght.toFixed(2)}`)
-  if (font.supportedAxes.includes('slnt')) settings.push(`'slnt' ${currentSlnt.toFixed(3)}`)
-  if (font.supportedAxes.includes('GRAD')) settings.push(`'GRAD' ${currentGrad.toFixed(2)}`)
-
-  canvasRef.value.style.fontVariationSettings = settings.join(', ')
+  canvasRef.value.style.fontVariationSettings = getVariationSettings()
   canvasRef.value.style.fontFamily = font.cssFamily
 
   // 同步數值至 UI 監測面板
-  if (font.supportedAxes.includes('wdth')) liveAxes.wdth = currentWdth
-  if (font.supportedAxes.includes('wght')) liveAxes.wght = currentWght
-  if (font.supportedAxes.includes('slnt')) liveAxes.slnt = currentSlnt
-  if (font.supportedAxes.includes('GRAD')) liveAxes.GRAD = currentGrad
+  syncLiveAxisValues()
 
   // 4. 要求次一影格繼續執行
   animationFrameId = requestAnimationFrame(renderLoop)
@@ -602,9 +618,9 @@ onBeforeUnmount(() => {
 .hero-title {
   font-family: var(--font-primary);
   font-variation-settings: 'wght' 600, 'wdth' 100;
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(2.5rem, 5vw, 4rem);
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: white;
   margin: 0;
   text-align: center;

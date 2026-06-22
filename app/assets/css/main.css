@@ -7,6 +7,13 @@
   font-stretch: 75% 100%;
 }
 
+@font-face {
+  font-family: 'Variable musako';
+  src: url('/fonts/VariablemusakoVF-full.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   --font-primary: 'DFP King Gothic', sans-serif;
   --bg-color-idle:   #05080f; /* 近黑深夜感，讓藍色光暈更突出 */
