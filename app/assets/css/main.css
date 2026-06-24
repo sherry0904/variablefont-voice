@@ -48,7 +48,6 @@ body, html {
   word-break: normal;
   overflow-wrap: break-word;
   text-align: center;
-  text-transform: uppercase;
   
   /* 準備字型變數的預設過渡狀態，但實際上會被 requestAnimationFrame 高頻覆寫 */
   /* 不要加 transition 至 font-variation-settings，否則 JS 即時 60fps 運算時會卡頓 */

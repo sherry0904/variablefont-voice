@@ -90,7 +90,7 @@ export const VARIABLE_FONTS: Record<string, FontConfig> = {
     playgroundText: 'DynaFont',
     // displaySize controls the home experience; playgroundSize controls /playground preview.
     // Quick tuning: reduce preferredVw/maxRem when text is too large, reduce minScale for longer words.
-    displaySize: { preferredVw: 9.5, maxRem: 11, fitChars: 6, minScale: 0.7 },
+    displaySize: { preferredVw: 11.5, maxRem: 13, fitChars: 6, minScale: 0.7 },
     playgroundSize: { preferredVw: 8.5, maxRem: 10, fitChars: 7, minScale: 0.7 },
     supportedAxes: ['wght', 'wdth', 'HIGH'],
     axes: {
