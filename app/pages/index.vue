@@ -54,6 +54,7 @@
     <div 
       ref="canvasRef" 
       class="dense-text-canvas"
+      :style="{ fontSize: displayFontSize }"
     >
       <!-- 使用三層文字疊加來模擬色散 -->
       <span class="text-layer layer-red" :style="{ transform: `translate(${rgbOffset.x}px, ${rgbOffset.y}px)` }">{{ displayWord }}</span>
@@ -180,7 +181,7 @@
 import { ref, onMounted, onBeforeUnmount, computed, reactive, watch } from 'vue'
 import { useAudioAnalyzer } from '~/composables/useAudioAnalyzer'
 import { lerp, getSineWave } from '~/composables/useMath'
-import { DEFAULT_FONT_ID, VARIABLE_FONTS, getVisibleFonts, type AxisConfig } from '~/config/fonts'
+import { DEFAULT_FONT_ID, VARIABLE_FONTS, getDisplayFontSize, getVisibleFonts, type AxisConfig } from '~/config/fonts'
 import { DEBUG_LOCALE, DEFAULT_LOCALE, MESSAGES } from '~/config/messages'
 
 const { isListening, rawVolume, volumeDelta, pitch, startListening, stopListening } = useAudioAnalyzer()
@@ -235,6 +236,7 @@ const containerRef = ref<HTMLElement | null>(null)
 
 // 畫面上要填滿被擠壓的文字
 const displayWord = computed(() => currentFont.value.defaultText)
+const displayFontSize = computed(() => getDisplayFontSize(currentFont.value))
 const THRESHOLD = 0.05 // 音量過濾門檻，過濾環境音
 
 // Debug 模式

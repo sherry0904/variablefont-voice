@@ -46,7 +46,8 @@
           class="preview-input"
           :style="{
             fontFamily: currentFont.cssFamily,
-            fontVariationSettings: currentVariationSettings
+            fontVariationSettings: currentVariationSettings,
+            fontSize: playgroundFontSize
           }"
           :placeholder="text.inputPlaceholder"
         ></textarea>
@@ -60,7 +61,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue'
-import { DEFAULT_FONT_ID, VARIABLE_FONTS, getVisibleFonts } from '~/config/fonts'
+import { DEFAULT_FONT_ID, VARIABLE_FONTS, getPlaygroundFontSize, getVisibleFonts } from '~/config/fonts'
 import { DEFAULT_LOCALE, MESSAGES } from '~/config/messages'
 
 // State
@@ -75,6 +76,7 @@ const currentFontId = useState<string>('globalFontId', () => DEFAULT_FONT_ID)
 const currentFont = computed(() => VARIABLE_FONTS[currentFontId.value] ?? VARIABLE_FONTS[DEFAULT_FONT_ID]!)
 const getDefaultPreviewText = () => currentFont.value.playgroundText ?? currentFont.value.defaultText
 const previewText = ref(getDefaultPreviewText())
+const playgroundFontSize = computed(() => getPlaygroundFontSize(currentFont.value))
 
 // Dynamic axes states
 const axisValues = reactive<Record<string, number>>({})
